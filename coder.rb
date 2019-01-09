@@ -1,132 +1,64 @@
 require File.join(File.dirname(__FILE__), "dictionary", "dictionary")
 
 class Coder
-	@@NUMBER_TO_CHARACTER = {2 => %w(A B C), 3 => %w(D E F), 4 => %w(G H I), 5 => %w(J K L), 6 => %w(M N O), 7 => %w(P Q R S), 8 => %w(T U V), 9 => %w(W X Y Z) }
-	@@CHARACTER_TO_NUMBER = { 'A' => 2, 'B' => 2, 'C' => 2, 
-		'D' => 3, 'E' => 3, 'F' => 3, 
-		'G' => 4, 'H' => 4, 'I' => 4, 
-		'J' => 5, 'K' => 5, 'L' => 5, 
-		'M' => 6, 'N' => 6, 'O' => 6, 
-		'P' => 7, 'Q' => 7, 'R' => 7, 'S' => 7, 
-		'T' => 8, 'U' => 8, 'V' => 8, 
-		'W' => 9, 'X' => 9, 'Y' => 9, 'Z' => 9}
-		
-	def initialize
-		@dictionary = Dictionary.new
-	end
-	
-	def search num
-	
-		@number = num
-		@c_array = number_to_string
-		@combinations = make_combinations
-		fetch_and_process
-	end
-		
-	def old_search num
-		@number = num
-		number_string = num.to_s
-		num_strings = number_to_string num
-		str = []
-		idx = [0,0,0,0,0,0,0,0,0,0]
-		idxa = []		
-		combinations = 1
-		
-		num_strings.each {|x| combinations = combinations * x.length }
-		
-		resetter = 9
-		starting_characters = num_strings[0]
-		ending_characters = num_strings[9]
-		dwords = []
-		fgex = /^(#{starting_characters.join('|')}).*(#{ending_characters.join('|')})/
-		sgex = /^(#{starting_characters.join('|')})(.*)/
-		egex = /.*(#{ending_characters.join('|')})$/
-		
-		ls = []
-		c_a = []
-		
-		@dictionary.fetch_words.each_with_index do |x, ind|
-		    x = x.strip
-		    l = x.length
-		    
-			if (l == 10 && x.match(fgex)) 
-			  s1 = string_to_number(x)
-			  c_a << x if s1 == number_string
-			elsif (l < 9 && (x.match(sgex) || x.match(egex)))
-			  dwords << x
-			  ls << l
-			end
-		end
-		
-		hwords = Hash.new {|h,k| h[k] = [] }
-		lmn = ls.min
-		lmx = ls.max
-		
-		lns = []
-		dwords = dwords.map do |x| 
-		    l = x.length
-			s1 = string_to_number(x) 
-			if (l <= (lmx - lmn) && number_string.match(/(.*)#{s1}(.*)/))			    
-			    hwords[s1] << x			    
-			    lns << l
-				x
-			end
-		end.compact.uniq
-		
-		c_a = c_a.reject {|x| next if x.is_a?(String); c_a.include?(x.join('')) }
-		
-		combinations.times do |z|
-			break if z == 1
-		    #break if z == 50
-		    #puts '----'
-		    #puts z
-			s = ""			
-			#puts "before:: #{idx}"
-			num_strings.each_with_index do |x, i|
-			  #puts "#{ns[i]}"
-			  j = idx[i]			  
-			  s += x[j]			  
-			end			
-			#puts "#{s}"
-			#puts resetter
-			idx[resetter] = (idx[resetter].next % ns[resetter].length)
-			#puts "after:: #{idx}"
-			if idx[resetter] == 0
-				#idx[resetter] = 0 #idx[resetter].next % ns[resetter].length
-				#resetter = resetter - 1				
-			#	puts "adjusting"
-				idx.each_with_index do |idxi, m|
-			#	    puts "#{idx}"					
-					if idx[resetter] == 0
-						resetter -= 1 
-						idx[resetter] = idx[resetter].next % ns[resetter].length						
-					end	
-					break if idx[resetter] > 0				
-				end				
-				resetter = 9
-			#	puts "after adjusting :: #{idx}"
-			end						
-			str << s
-			#File.open(filename, 'a') do |file|
-			#	file.puts s
-			#end
-		end
-		
+	def initialize options = {}
+		@dictionary = Dictionary.new #.fetch_words		
+		@enable_full_search = options[:enable_full_search] || false
 	end
 
-private	
+	def search n
+		# validate number
+		status, msg = valid_number n
+		return msg unless status
+		
+		@number = n
+		@c_array = number_to_string n
+		@combinations = make_combinations
+		fetch_and_process		
+	end
+	
+	private 
+	
+	def valid_number n
+		number = n.to_s
+		return false, "Must be a 10 digit number only" if number.length != 10
+		return false, "Must not include 0 & 1" unless (number.split('') & ['0','1']).empty?
+		return true
+	end
 	
 	def fetch_and_process
 		words = []
 		@combinations.each_with_index do |c, i|
 			gex_component = c.collect {|x| "(^#{x}$)\n"}.join('|')
 			word_combinations = @dictionary.fetch_words.scan(/(?:#{gex_component})/).uniq
-						
-			h = {0 => [], 1 => []}
-			word_combinations.each {|x| !x.first.nil? ? (h[0] += x.compact) : (h[1] += x.compact) }				
-			word_arr = h.values				
-			words += h[0].product(h[1]).map {|x| x unless words.include?(x.join(''))}.compact unless word_arr.include? []
 			
+			if c.length == 1
+				words += word_combinations.flatten
+			elsif c.length == 2
+				h = {0 => [], 1 => []}
+				word_combinations.each {|x| !x.first.nil? ? (h[0] += x.compact) : (h[1] += x.compact) }
+				
+				word_arr = h.values
+				if i != 3
+					words += h[0].product(h[1]).map {|x| x unless words.include?(x.join(''))}.compact unless word_arr.include? []				
+				elsif i == 3
+					unless word_arr.include? []
+						words += h[0].product(h[1]).map {|x| x unless words.include?(x.join(''))}.compact 				
+					else
+						## this case is added just if a number has equal halves 
+						#  for example; 46559 46559  which can possibly be made as 
+						#   [["HOLK", "WHOLLY"], ["GOLLY", "GOLLY"], ["GOLLY", "HOLLY"], ["HOLLY", "GOLLY"], ["HOLLY", "HOLLY"]]
+						#  instead of just [["HOLK", "WHOLLY"], ["GOLLY", "HOLLY"]]
+						##
+						words += word_arr.flatten.uniq.repeated_permutation(2).to_a.map {|x| x unless (words.include?(x.join('')) || words.include?([x.join('')]))}.compact if @number.to_s[0..4] == @number.to_s[5..9]
+					end	
+				end
+			elsif c.length == 3 # case hits only if flag enable_full_search was set true
+				h = {0 => [], 1 => [], 2 => []}
+				word_combinations.each {|x| !x.first.nil? ? (h[0] += x.compact) : !x.last.nil? ? (h[2] += x.compact) : (h[1] += x.compact)}
+				word_arr = h.values				
+				words += h[0].product(h[1].product(h[2])).map {|x| x.flatten }.map {|x| x unless (words.include?(x.join('')) || words.include?([x.join('')]))}.compact unless word_arr.include? []							
+			end
 		end
 		words
 	end
@@ -184,23 +116,58 @@ private
 		s = ""
 		@c_array.values_at(7..9).each {|x| s += "[#{x.join('|')}]" }
 		a << s
+		## if this flag is true, allow to search for 3 words combinations also
+		if @enable_full_search
+			##334
+			a = []
+			s = ""
+			@c_array.values_at(0..2).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(3..5).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(6..9).each {|x| s += "[#{x.join('|')}]" }
+			a << s
 		
+			##343
+			a = []
+			s = ""
+			@c_array.values_at(0..2).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(3..6).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(7..9).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			
+			##433
+			a = []
+			s = ""
+			@c_array.values_at(0..3).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(4..6).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+			s = ""
+			@c_array.values_at(7..9).each {|x| s += "[#{x.join('|')}]" }
+			a << s
+		end
 		combination_arr << a
 		combination_arr
 	end
-	
-	def string_to_number s
-		a = []
-		s.split('').each do |x|
-			a << fetch_number(x)
-		end
-		a.join('')
-	end
-	
-	def number_to_string 
-		@number.to_s.split('').map do |x|
+
+	def number_to_string n
+		n.to_s.split('').map do |x|
 			fetch_character(x.to_i)
 		end
+    end
+    
+	def string_to_number s	  
+	  s.split('').map do |x|
+	    fetch_number(x)
+	  end.join('')
     end
     
 	def fetch_number c
@@ -210,4 +177,29 @@ private
 	def fetch_character n
 		@@NUMBER_TO_CHARACTER[n]
 	end
+	
+	@@NUMBER_TO_CHARACTER = {2 => %w(A B C), 3 => %w(D E F), 4 => %w(G H I), 5 => %w(J K L), 6 => %w(M N O), 7 => %w(P Q R S), 8 => %w(T U V), 9 => %w(W X Y Z) }
+	@@CHARACTER_TO_NUMBER = { 'A' => 2, 'B' => 2, 'C' => 2, 
+		'D' => 3, 'E' => 3, 'F' => 3, 
+		'G' => 4, 'H' => 4, 'I' => 4, 
+		'J' => 5, 'K' => 5, 'L' => 5, 
+		'M' => 6, 'N' => 6, 'O' => 6, 
+		'P' => 7, 'Q' => 7, 'R' => 7, 'S' => 7, 
+		'T' => 8, 'U' => 8, 'V' => 8, 
+		'W' => 9, 'X' => 9, 'Y' => 9, 'Z' => 9}
+end
+
+describe Coder do
+  describe 'Testing search #test case 1' do
+    it 'testing with 6686787825' do
+      cdr = Coder.new      
+      expect(cdr.search 6686787825).to eq(["MOTORTRUCK", ["NOUN", "STRUCK"], ["ONTO", "STRUCK"], ["MOTOR", "USUAL"], ["NOUNS", "TRUCK"], ["NOUNS", "USUAL"]])
+    end
+  end  
+  describe 'Testing search #test case 2' do
+    it 'testing with 2282668687' do
+      cdr = Coder.new      
+      expect(cdr.search 2282668687).to eq(["CATAMOUNTS", ["ACT", "AMOUNTS"], ["ACT", "CONTOUR"], ["BAT", "AMOUNTS"], ["BAT", "CONTOUR"], ["CAT", "CONTOUR"], ["ACTA", "MOUNTS"]])
+    end
+  end
 end
