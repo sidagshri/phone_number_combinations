@@ -16,6 +16,14 @@ class Coder
 	end
 	
 	def search num
+	
+		@number = num
+		@c_array = number_to_string
+		@combinations = make_combinations
+		fetch_and_process
+	end
+		
+	def old_search num
 		@number = num
 		number_string = num.to_s
 		num_strings = number_to_string num
@@ -65,6 +73,120 @@ class Coder
 			end
 		end.compact.uniq
 		
+		c_a = c_a.reject {|x| next if x.is_a?(String); c_a.include?(x.join('')) }
+		
+		combinations.times do |z|
+			break if z == 1
+		    #break if z == 50
+		    #puts '----'
+		    #puts z
+			s = ""			
+			#puts "before:: #{idx}"
+			num_strings.each_with_index do |x, i|
+			  #puts "#{ns[i]}"
+			  j = idx[i]			  
+			  s += x[j]			  
+			end			
+			#puts "#{s}"
+			#puts resetter
+			idx[resetter] = (idx[resetter].next % ns[resetter].length)
+			#puts "after:: #{idx}"
+			if idx[resetter] == 0
+				#idx[resetter] = 0 #idx[resetter].next % ns[resetter].length
+				#resetter = resetter - 1				
+			#	puts "adjusting"
+				idx.each_with_index do |idxi, m|
+			#	    puts "#{idx}"					
+					if idx[resetter] == 0
+						resetter -= 1 
+						idx[resetter] = idx[resetter].next % ns[resetter].length						
+					end	
+					break if idx[resetter] > 0				
+				end				
+				resetter = 9
+			#	puts "after adjusting :: #{idx}"
+			end						
+			str << s
+			#File.open(filename, 'a') do |file|
+			#	file.puts s
+			#end
+		end
+		
+	end
+
+private	
+	
+	def fetch_and_process
+		words = []
+		@combinations.each_with_index do |c, i|
+			gex_component = c.collect {|x| "(^#{x}$)\n"}.join('|')
+			word_combinations = @dictionary.fetch_words.scan(/(?:#{gex_component})/).uniq
+						
+			h = {0 => [], 1 => []}
+			word_combinations.each {|x| !x.first.nil? ? (h[0] += x.compact) : (h[1] += x.compact) }				
+			word_arr = h.values				
+			words += h[0].product(h[1]).map {|x| x unless words.include?(x.join(''))}.compact unless word_arr.include? []
+			
+		end
+		words
+	end
+	
+	def make_combinations
+		combination_arr = []
+		##10
+		s = ""
+		@c_array.each {|x| s += "[#{x.join('|')}]" }
+		combination_arr << [s]
+		##37
+		a = []
+		s = ""
+		@c_array.values_at(0..2).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		s = ""
+		@c_array.values_at(3..9).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		combination_arr << a
+		##46
+		a = []
+		s = ""
+		@c_array.values_at(0..3).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		s = ""
+		@c_array.values_at(4..9).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		combination_arr << a
+		
+		##55
+		a = []
+		s = ""
+		@c_array.values_at(0..4).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		s = ""
+		@c_array.values_at(5..9).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		combination_arr << a
+		
+		##64
+		a = []
+		s = ""
+		@c_array.values_at(0..5).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		s = ""
+		@c_array.values_at(6..9).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		combination_arr << a
+		
+		##73
+		a = []
+		s = ""
+		@c_array.values_at(0..6).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		s = ""
+		@c_array.values_at(7..9).each {|x| s += "[#{x.join('|')}]" }
+		a << s
+		
+		combination_arr << a
+		combination_arr
 	end
 	
 	def string_to_number s
@@ -75,8 +197,8 @@ class Coder
 		a.join('')
 	end
 	
-	def number_to_string n
-		n.to_s.split('').map do |x|
+	def number_to_string 
+		@number.to_s.split('').map do |x|
 			fetch_character(x.to_i)
 		end
     end
